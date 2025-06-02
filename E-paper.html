@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pakistani News - Newspaper Style</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500&display=swap" rel="stylesheet">
+    <style>
+
+        /* Keep the original light mode .news-article style */
+.news-article {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 20px;
+    margin: 20px 0;
+    border: 2px solid #000;
+    border-radius: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    color: #222; /* text color in light mode */
+}
+
+/* Dark mode adjustments for news article */
+.dark-mode .news-article {
+    background: rgba(30, 25, 10, 0.75); /* very dark with a hint of warm gold */
+    border-color: #bfa458; /* delicate gold border */
+    color: #f5e9b2; /* soft pale gold text */
+}
+
+/* Optional: adjust expand and save buttons colors in dark mode for better look */
+.dark-mode .expand {
+    color: #bfa458; /* gold text for links */
+}
+
+.dark-mode .save-btn {
+    background: #3b2f00; /* dark goldish background */
+    color: #f5e9b2;
+    border: 1px solid #bfa458;
+}
+
+/* Body and background for dark mode - subtle gold touch */
+.dark-mode {
+    background-color: #1e1c14; /* very dark brownish black */
+    color: #ddd;
+}
+
+
+
+
+        body {
+            font-family: 'Playfair Display', serif;
+            margin: 0;
+            padding: 0;
+            background: url('texture.jpg'); /* Make sure texture.jpg is in the same directory */
+            background-size: cover;
+            color: #222;
+        }
+
+        .dark-mode {
+            background-color: #1e1e1e;
+            color: #ddd;
+        }
+
+        .container {
+            width: 80%;
+            margin: auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            padding: 20px 0;
+            font-size: 3em;
+            border-bottom: 2px solid #000;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .controls select, .controls button {
+            padding: 8px;
+            margin: 5px;
+            font-family: inherit;
+            font-size: 1em;
+        }
+
+        .news-article {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            margin: 20px 0;
+            border: 2px solid #000;
+            border-radius: 8px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .news-img {
+            flex: 1 1 40%;
+            margin-right: 20px;
+        }
+
+        .news-img img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #333;
+        }
+
+        .news-text {
+            flex: 1 1 55%;
+        }
+
+        .news-date {
+            font-size: 0.9em;
+            margin-top: 10px;
+            border-top: 1px solid #888;
+            padding-top: 10px;
+        }
+
+        .expand {
+            margin-top: 10px;
+            display: block;
+            cursor: pointer;
+            color: darkblue;
+            text-decoration: underline;
+            background: none;
+            border: none;
+            font-family: inherit;
+            font-size: 1em;
+        }
+
+        .save-btn {
+            margin-top: 10px;
+            background: #222;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        #dateline {
+    background-color: #f3f3f3;
+    color: #222;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1em;
+    text-align: center;
+    padding: 10px;
+    border-bottom: 2px solid #000;
+    letter-spacing: 0.5px;
+}
+.dark-mode #dateline {
+    background-color: #121212;
+    color: #e6e6e6;
+    border-bottom: 1px solid gold;
+}
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>E-Paper</h1>
+        <div id="dateline"></div>
+
+        <div class="controls">
+            <div>
+                <select id="region-select">
+                    <option value="pk">Pakistan (Local)</option>
+                    <option value="us">USA</option>
+                    <option value="gb">UK</option>
+                    <option value="in">India</option>
+                    <option value="world">Global</option>
+                </select>
+
+                <select id="lang-select">
+                    <option value="en">English</option>
+                    <option value="ur">Urdu</option>
+                </select>
+            </div>
+            <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
+        </div>
+
+        <div id="pakistan-news"></div>
+    </div>
+
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script>
+        const newsContainer = document.getElementById('pakistan-news');
+        const regionSelect = document.getElementById('region-select');
+        const langSelect = document.getElementById('lang-select');
+        const API_KEY = 'c7f341aac6b11c41f9f27dc74add84fd';
+
+        async function fetchNews() {
+            const region = regionSelect.value;
+            const lang = langSelect.value;
+
+            let url = `https://gnews.io/api/v4/top-headlines?token=${API_KEY}&lang=${lang}`;
+            if (region !== 'world') url += `&country=${region}`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+                const data = await response.json();
+                if (!data.articles || data.articles.length === 0) {
+                    newsContainer.innerHTML = '<p>No articles found.</p>';
+                    return;
+                }
+
+                let html = '';
+
+                data.articles.forEach((article, index) => {
+                    html += `
+                    <div class="news-article" id="news-${index}">
+                        <div class="news-img">
+                            ${article.image ? `<img src="${article.image}" alt="${article.title}">` : ''}
+                        </div>
+                        <div class="news-text">
+                            <h2>${article.title}</h2>
+                            <p class="summary">${article.description || ''}</p>
+                            <div class="news-date">${new Date(article.publishedAt).toLocaleString()}</div>
+                            <button class="expand" onclick="expandNews(this, '${article.content?.replace(/'/g, '') || 'No further content available.'}')">Read more</button>
+                            <button class="save-btn" onclick="saveAsImage('news-${index}')">Save as Image</button>
+                        </div>
+                    </div>`;
+                });
+
+                newsContainer.innerHTML = html;
+            } catch (error) {
+                console.error('Error fetching news:', error);
+                newsContainer.innerHTML = '<p>Error fetching news. Please try again later.</p>';
+            }
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+        }
+
+        function expandNews(button, content) {
+            const container = button.parentElement;
+            const para = document.createElement('p');
+            para.innerText = content;
+            container.insertBefore(para, button);
+            button.remove();
+        }
+
+        function saveAsImage(elementId) {
+            const element = document.getElementById(elementId);
+            html2canvas(element).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `${elementId}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        }
+          
+        
+        regionSelect.addEventListener('change', fetchNews);
+        langSelect.addEventListener('change', fetchNews);
+        document.addEventListener('DOMContentLoaded', fetchNews);
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+    function downloadNewsAsImage(articleElement, title) {
+        const image = articleElement.querySelector('img');
+        
+        if (image && !image.complete) {
+            image.onload = () => captureAndDownload(articleElement, title);
+            image.onerror = () => captureAndDownload(articleElement, title);
+        } else {
+            captureAndDownload(articleElement, title);
+        }
+    }
+    
+    function captureAndDownload(element, title) {
+        html2canvas(element, {
+            useCORS: true,
+            allowTaint: false,
+            scale: 2,
+            backgroundColor: null
+        }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+    }
+
+    function updateDateTime() {
+    const dateline = document.getElementById('dateline');
+    const now = new Date();
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const date = now.toLocaleDateString(undefined, options);
+    const time = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    dateline.textContent = `${date} | ${time}`;
+}
+setInterval(updateDateTime, 1000);
+updateDateTime();
+
+    </script>
+    
+    
+
+</body>
+</html>
