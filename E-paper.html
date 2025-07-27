@@ -1722,7 +1722,15 @@
       btn.onclick = e=>showSaveOptions(e.target.closest('button').dataset.idx);
     });
     document.querySelectorAll('.tts-btn').forEach(btn=>{
-      btn.onclick = e=>startTTS(parseInt(e.target.closest('button').dataset.idx), 'en');
+      btn.onclick = e=>{
+        // Ensure TTS is triggered by user gesture
+        const idx = parseInt(e.target.closest('button').dataset.idx);
+        if (window.speechSynthesis) {
+          startTTS(idx, 'en');
+        } else {
+          alert('Text-to-speech is not supported in this environment or requires user interaction.');
+        }
+      };
     });
     document.querySelectorAll('.read-more-btn').forEach(btn=>{
       btn.onclick = e=>showArticleDetail(parseInt(e.target.closest('button').dataset.idx));
@@ -1852,39 +1860,109 @@
 
   let ttsIdxQueue = [], ttsUtter = null;
   const ttsControls = document.getElementById('tts-controls');
+  
+  // Initialize TTS when the page loads
+  function initializeTTS() {
+    // Check if speech synthesis is supported
+    if (!('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported');
+      return;
+    }
+    
+    // Request permission on iOS devices
+    if (typeof speechSynthesis.getVoices === 'function' && speechSynthesis.getVoices().length === 0) {
+      // This will trigger the permission dialog on iOS
+      speechSynthesis.getVoices();
+    }
+  }
+  
   function startTTS(idx, lang){
+    // Check if speech synthesis is available
+    if (!('speechSynthesis' in window)) {
+      alert('Text-to-speech is not supported in this browser or environment.');
+      return;
+    }
+    
     ttsIdxQueue = [idx];
     ttsControls.style.display='flex';
     playNext(lang);
   }
+  
   async function playNext(lang){
     if(ttsIdxQueue.length===0) return stopTTS();
     const idx = ttsIdxQueue.shift(), art = articles[idx];
     document.querySelectorAll('.article').forEach(d=>d.classList.remove('highlight'));
     const div = document.querySelector(`.article[data-idx="${idx}"]`);
     div.classList.add('highlight');
-    const text = lang==='ur' ? await translate(art.title + '. ' + (art.description||''), 'ur') : art.title + '. ' + (art.description||'');
-    ttsUtter = new SpeechSynthesisUtterance(text);
-    ttsUtter.lang = lang==='ur'?'ur-PK':'en-US';
-    ttsUtter.onend = ()=>playNext(lang);
-    speechSynthesis.speak(ttsUtter);
-  }
-  function stopTTS(){
+    
+    let text = art.title + '. ' + (art.description||'');
+    
+    if(lang === 'ur') {
+      try {
+        text = await translate(text, 'ur');
+      } catch (e) {
+        console.error('Translation failed:', e);
+        text = art.title + '. ' + (art.description||'');
+      }
+    }
+    
+    // Cancel any ongoing speech
     speechSynthesis.cancel();
+    
+    ttsUtter = new SpeechSynthesisUtterance(text);
+    ttsUtter.lang = lang === 'ur' ? 'ur-PK' : 'en-US';
+    ttsUtter.onend = ()=>playNext(lang);
+    ttsUtter.onerror = (e) => {
+      console.error('SpeechSynthesis error:', e);
+      stopTTS();
+    };
+    
+    try {
+      speechSynthesis.speak(ttsUtter);
+    } catch (e) {
+      console.error('SpeechSynthesis speak error:', e);
+      alert('Error starting text-to-speech. Please try again.');
+      stopTTS();
+    }
+  }
+  
+  function stopTTS(){
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+    }
     ttsControls.style.display='none';
     document.querySelectorAll('.article').forEach(d=>d.classList.remove('highlight'));
   }
-  document.getElementById('tts-play').onclick = ()=>speechSynthesis.resume();
-  document.getElementById('tts-pause').onclick = ()=>speechSynthesis.pause();
+  
+  // Set up TTS controls
+  document.getElementById('tts-play').onclick = ()=>{
+    if ('speechSynthesis' in window) {
+      speechSynthesis.resume();
+    }
+  };
+  
+  document.getElementById('tts-pause').onclick = ()=>{
+    if ('speechSynthesis' in window) {
+      speechSynthesis.pause();
+    }
+  };
+  
   document.getElementById('tts-prev').onclick = ()=>{
     if(ttsIdxQueue[0]>0) ttsIdxQueue.unshift(ttsIdxQueue[0]-1);
-    speechSynthesis.cancel();
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+    }
   };
+  
   document.getElementById('tts-next').onclick = ()=>{
     if(ttsIdxQueue[0]<articles.length-1) ttsIdxQueue.unshift(ttsIdxQueue[0]+1);
-    speechSynthesis.cancel();
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+    }
   };
+  
   document.getElementById('tts-stop').onclick = stopTTS;
+  
   document.getElementById('tts-translate-ur').onclick = ()=>{
     if(ttsIdxQueue.length===0 && ttsUtter) {
       // restart same index
@@ -1895,9 +1973,14 @@
   };
 
   async function translate(text, target){
-    const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${target}`);
-    const j = await resp.json();
-    return j.responseData.translatedText;
+    try {
+      const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${target}`);
+      const j = await resp.json();
+      return j.responseData.translatedText || text;
+    } catch (e) {
+      console.error('Translation error:', e);
+      return text;
+    }
   }
 
   // comments
@@ -1952,6 +2035,7 @@
     loadStockData('AAPL', '1d');
     loadExchangeData('^GSPC', '1d');
     loadMarketData();
+    initializeTTS(); // Initialize TTS when page loads
   });
 
 })();
