@@ -4,13 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>E DAILY Enhanced</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous">
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/leaflet.heat@1.0.0/dist/leaflet-heat.js" integrity="sha384-sQlqFd0F2gajKg30HV3HQuKgbMeb+ZmRvwe2bfEd+uobSVnOmMwdA9yqfuaA/ivS" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1" integrity="sha384-Emf5ZVIUiarAdhkgtqK+5/Z5qIvM6QoVrS+qAVtfyZVuD5lIHrac0me485+Antp0" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous" />
   <style>
     :root {
       --bg: #ffffff;
@@ -1053,6 +1053,7 @@
     <button id="tts-translate-ur"><i class="fas fa-language"></i> Urdu</button>
   </div>
 
+<script src="config.js"></script>
 <script>
 (async()=>{
 
@@ -1117,15 +1118,15 @@
     document.getElementById('menuContent').classList.remove('show');
   });
 
-  // API Key rotation system
-  const API_KEYS = [
-    "c5a1efa593e379efe2574c14d32331fd",
-    "3bbf4428d346b399c92eba081a7282f3",
-    "6503a6ad185ec9d4935bf93256652db2",
-    "45684172d107b323eedea4134ea4367d",
-    "c7f341aac6b11c41f9f27dc74add84fd" // original key as fallback
-  ];
-  
+  // GNews API key(s) — configured via config.js (copy from config.example.js), never committed.
+  const API_KEYS = (typeof GNEWS_API_KEYS !== 'undefined' && Array.isArray(GNEWS_API_KEYS))
+    ? GNEWS_API_KEYS.filter(k => k && k !== 'YOUR_GNEWS_API_KEY_HERE')
+    : [];
+
+  if (API_KEYS.length === 0) {
+    console.error('No GNews API key configured. Copy config.example.js to config.js and add your own key from https://gnews.io.');
+  }
+
   let currentApiKeyIndex = 0;
   let apiKeyErrors = {}; // Track errors per API key
   
@@ -1480,7 +1481,15 @@
   async function fetchNews(){
     if (isLoading) return;
     isLoading = true;
-    
+
+    if (API_KEYS.length === 0) {
+      isLoading = false;
+      hasMore = false;
+      document.getElementById('news-container').innerHTML =
+        '<p>No GNews API key configured. Copy <code>config.example.js</code> to <code>config.js</code>, add your own key from gnews.io, and reload the page.</p>';
+      return;
+    }
+
     try {
       let urlTemplate;
       if(currentCountry === 'world') {
@@ -1504,7 +1513,7 @@
     } catch (error) {
       console.error("Error fetching news:", error);
       document.getElementById('news-container').innerHTML = `
-        <p>Failed to load news. ${error.message}</p>
+        <p>Failed to load news. ${escapeHtml(error.message)}</p>
         ${API_KEYS.length > 1 ? '<p>Trying different API keys...</p>' : ''}
       `;
       
@@ -1553,8 +1562,8 @@
       const articleDiv = document.createElement('div');
       articleDiv.className='article'; articleDiv.dataset.idx = actualIndex;
       let content = `<h2 class="headline-lg">${highlight(a.title)}</h2>`;
-      content += `<p class="author">By ${a.author||a.source.name}</p>`;
-      if(a.image) content += `<img src="${a.image}" style="width:100%;height:200px;object-fit:cover;border-radius:4px;margin-bottom:15px;">`;
+      content += `<p class="author">By ${escapeHtml(a.author||a.source.name)}</p>`;
+      if(a.image && isSafeImageUrl(a.image)) content += `<img src="${escapeHtml(a.image)}" style="width:100%;height:200px;object-fit:cover;border-radius:4px;margin-bottom:15px;">`;
       content += `<p>${highlight(a.description||'')}</p>`;
       // badges
       if(a.verified) content += `<span class="factcheck">Fact‑checked</span>`;
@@ -1700,11 +1709,27 @@
     L.heatLayer(mockCoords, { radius: 25, blur: 15, maxZoom: 5 }).addTo(map);
   }
 
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+  }
+
+  function escapeRegExp(str){
+    return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function isSafeImageUrl(url){
+    try { return ['http:', 'https:'].includes(new URL(url, window.location.href).protocol); }
+    catch { return false; }
+  }
+
   function highlight(text){
+    const escaped = escapeHtml(text);
     const key = searchInput.value.trim();
-    if(!key) return text;
-    const re = new RegExp(`(${key})`,'gi');
-    return text.replace(re,'<mark>$1</mark>');
+    if(!key) return escaped;
+    const re = new RegExp(`(${escapeRegExp(key)})`,'gi');
+    return escaped.replace(re,'<mark>$1</mark>');
   }
 
   function bindActions(){
@@ -1745,10 +1770,10 @@
     const article = articles[idx];
     const detailContent = document.getElementById('article-content');
     detailContent.innerHTML = `
-      <h1 class="headline-xxl">${article.title}</h1>
-      <p class="author">By ${article.author||article.source.name}</p>
-      ${article.image ? `<img src="${article.image}" style="width:100%;max-height:300px;object-fit:cover;border-radius:4px;margin-bottom:15px;">` : ''}
-      <p>${article.description||''}</p>
+      <h1 class="headline-xxl">${escapeHtml(article.title)}</h1>
+      <p class="author">By ${escapeHtml(article.author||article.source.name)}</p>
+      ${article.image && isSafeImageUrl(article.image) ? `<img src="${escapeHtml(article.image)}" style="width:100%;max-height:300px;object-fit:cover;border-radius:4px;margin-bottom:15px;">` : ''}
+      <p>${escapeHtml(article.description||'')}</p>
       <p>${generateLoremIpsum()}</p>
       <p>${generateLoremIpsum()}</p>
       <p>${generateLoremIpsum()}</p>
